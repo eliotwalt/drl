@@ -14,7 +14,7 @@ def pwait(popen, desc, qu):
 
 def run(tasks):
     results = queue.Queue()
-    pool_size = 2*os.cpu_count()
+    pool_size = 5 # 2*os.cpu_count()
     num_pools = len(tasks) // pool_size + 1
     count = 0
     pids = []

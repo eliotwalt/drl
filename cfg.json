@@ -1,16 +1,16 @@
 [{
     "algorithm": "DDQN",
     "params": {
-        "epsilon": [0.96],
-        "lr": [0.001, 0.005],
-        "gamma": [0.99, 0.95, 0.9],
+        "epsilon": [0.05],
+        "lr": [0.01, 0.05],
+        "gamma": [0.95, 0.99],
         "num_episodes": [10000],
         "batch_size": [256],
         "max_length": [1000000],
         "num_seeds": [3],
-        "device": ["cpu"],
-        "fcs": [[12, 12], [32, 32]],
-        "C": [100],
+        "device": ["cuda:0"],
+        "fcs": [[72, 72], [32, 32]],
+        "C": [75],
         "env": ["LunarLander-v2"]
     }
 }]

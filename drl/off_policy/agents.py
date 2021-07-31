@@ -94,7 +94,7 @@ class DQLAgent(QAgent):
 
     def select_action(self, state):
         '''DQLAgent.select_action'''
-        if random.uniform(0, 1) > self.epsilon:
+        if random.uniform(0, 1) < self.epsilon:
             action = random.choice(range(self.num_actions))
         else:
             action = torch.argmax(self.network(state), dim=1).item()
@@ -129,7 +129,7 @@ class DQNAgent(QAgent):
 
     def select_action(self, state):
         '''DQNAgent.select_action'''
-        if random.uniform(0, 1) > self.epsilon:
+        if random.uniform(0, 1) < self.epsilon:
             action = random.choice(range(self.num_actions))
         else:
             action = torch.argmax(self.network(state), dim=1).item()
@@ -167,7 +167,7 @@ class DDQNAgent(QAgent):
 
     def select_action(self, state):
         '''DDQNAgent.select_action'''
-        if random.uniform(0, 1) > self.epsilon:
+        if random.uniform(0, 1) < self.epsilon:
             action = random.choice(range(self.num_actions))
         else:
             action = torch.argmax(self.network(state), dim=1).item()

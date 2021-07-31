@@ -32,7 +32,7 @@ class QTrainer:
         state = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
         done = False
         while not done:
-            action = self.agent.select_action(state)
+            action = self.agent.select_action(state.to(self.agent.device))
             state_, reward, done, _ = self.env.step(action)
             state_ = torch.from_numpy(state_).to(torch.float32).unsqueeze(0)
             self.agent.store(state, action, reward, done)
