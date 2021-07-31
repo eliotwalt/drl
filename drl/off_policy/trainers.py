@@ -1,9 +1,8 @@
 import torch
 import gym
-from .agents import QAgent
 
 class QTrainer:
-    def __init__(self, env: gym.Env, num_episodes: int, agent: QAgent, num_seeds: int, pid: int=0):
+    def __init__(self, env: gym.Env, num_episodes: int, agent: QAgent, pid: int=0):
         '''QLearningTrainer constructor
         Inputs:
         -------
@@ -24,7 +23,7 @@ class QTrainer:
         self.prid = '[{}]'.format(pid)
         self.avg_rewards = []
         self.avg_qs = []
-        ### TODO: SEEDS
+        #### TODO: SEEDS
 
     def run_epsiode(self):
         '''QLearningTrainer.run_epsiode: run one episode'''

@@ -10,7 +10,7 @@ from .utils import ReplayBuffer
 class QAgent:
     def __init__(self, num_actions: int, fcs: List[int], num_episodes: int, epsilon: float, lr: float, 
                  gamma: float, batch_size: int, input_dim: int, max_length: int, device: torch.device,
-                 dir: str, name):
+                 dir: str, name: str):
         '''QAgent constructor
         Inputs:
         -------
@@ -36,11 +36,10 @@ class QAgent:
             max_length of the replay buffer
         device: torch.device
             device to compute with
-        name: Optional[str]
-            name of the agent
         dir: str
             name of directory to save to
-        
+        name: Optional[str]
+            name of the agent
         '''
         assert epsilon >= 0 and epsilon <= 1, f'epsilon must be a probability, i.e in [0,1]'
         self.num_actions = num_actions
