@@ -1,25 +1,35 @@
 import argparse
 import json
 from drl.off_policy.agents import *
-from drl.off_policy.trainers import *
 from drl.on_policy.agents import *
-from drl.on_policy.trainers import *
+from drl.trainers import *
+import inspect
 
 algo_map = {
     'dql': {
         'agent': DQLAgent,
-        'trainer': QTrainer
+        'trainer': OnlineTrainer
     },
     'dqn': {
         'agent': DQNAgent,
-        'trainer': QTrainer
+        'trainer': OnlineTrainer
     },
     'ddqn': {
         'agent': DDQNAgent,
-        'trainer': QTrainer
+        'trainer': OnlineTrainer
     },
-    # To complete
+    'reinforce': {
+        'agent': ReinforceAgent,
+        'trainer': EpisodicTrainer,
+    }
 }
+
+def make_kwargs(class_):
+    baseclasses = class_.__mro__
+    kwargs = []
+    for baseclass in baseclasses:
+        kwargs.extend([arg for arg in inspect.getfullargspec(baseclass).args if arg != 'self'])
+    return kwargs
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -30,8 +40,8 @@ def get_config():
     return cfg
 
 def get_agent(algo):
-    return algo_map[algo.lower()]['agent']
+    return algo_map[algo.lower()]['agent'], make_kwargs(algo_map[algo.lower()]['agent'])
 
 def get_trainer(algo):
-    return algo_map[algo.lower()]['trainer']
+    return algo_map[algo.lower()]['trainer'], make_kwargs(algo_map[algo.lower()]['trainer'])
     

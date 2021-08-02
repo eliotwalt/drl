@@ -1,0 +1,16 @@
+{
+    "algorithm": "ddqn",
+    "env": "LunarLander-v2",
+    "epsilon": 0.05,
+    "lr": 0.001,
+    "gamma": 0.99,
+    "num_episodes": 3000,
+    "batch_size": 512,
+    "max_length": 1000000,
+    "num_seeds": 3,
+    "device": "cuda:0",
+    "fcs": [256, 128],
+    "C": 100,
+    "dir": "defaults/results",
+    "name": "lunarlander-ddqn"
+}

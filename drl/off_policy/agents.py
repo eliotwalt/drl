@@ -52,7 +52,7 @@ class QAgent:
         self.max_length = max_length
         self.device = device
         self.name = name
-        self.dirname = os.path.join(dir, name)
+        self.path = os.path.join(dir, name)
         self.fcs = fcs
         self.network = FCQNetwork(input_dim, fcs, num_actions).to(device)
         self.replay_buffer = ReplayBuffer(batch_size, input_dim, max_length, device)
@@ -78,18 +78,18 @@ class QAgent:
         self.target_network.load_state_dict(self.network.state_dict())
 
     def save_network(self):
-        f = os.path.join(self.dirname, 'network')
+        f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
 class DQLAgent(QAgent):
-    def __init__(self, **qagent_kwargs):
+    def __init__(self, *qagent_args, **qagent_kwargs):
         '''DQLAgent constructor
         Inputs:
         -------
-        qagent_kwargs: dict-like
+        qagent_args, q_agent_wkargs:
             see QAgent
         '''
-        super().__init__(**qagent_kwargs)
+        super().__init__(*qagent_args, **qagent_kwargs)
 
     def select_action(self, state):
         '''DQLAgent.select_action'''
@@ -104,23 +104,23 @@ class DQLAgent(QAgent):
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
         if states is not None:
             q = torch.zeros_like(rewards)
-            q[dones!=1] = self.gamma*torch.max(self.network(states_[dones!=1]), dim=1)[0].detach()
+            q[dones!=1] = self.gamma*torch.max(self.network(states_[dones!=1]), dim=1, keepdim=True)[0].detach()
             y = rewards + q
-            x = self.network(states)[actions]
+            x = torch.gather(self.network(states), 1, actions)
             self.propagate(x, y)
             return torch.mean(rewards).detach().item(), torch.mean(x).detach().item()
 
 class DQNAgent(QAgent):
-    def __init__(self, C: int, **qagent_kwargs):
+    def __init__(self, C: int, *qagent_args, **qagent_kwargs):
         '''DQNAgent constructor
         Inputs:
         -------
         C: int
             frequency of target network update in number of iterations
-        qagent_kwargs: dict-like
+        qagent_args, q_agent_wkargs:
             see QAgent
         '''
-        super().__init__(**qagent_kwargs)
+        super().__init__(*qagent_args, **qagent_kwargs)
         self.target_network = FCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
         self.copy_target()
         self.C = C
@@ -139,26 +139,26 @@ class DQNAgent(QAgent):
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
         if states is not None:
             q = torch.zeros_like(rewards)
-            q[dones!=1] = self.gamma*torch.max(self.target_network(states_[dones!=1]), dim=1)[0].detach()
+            q[dones!=1] = self.gamma*torch.max(self.target_network(states_[dones!=1]), dim=1, keepdim=True)[0].detach()
             y = rewards + q
-            x = self.network(states)[actions]
+            x = torch.gather(self.network(states), 1, actions)
             self.propagate(x, y)
             self.counter += 1
             if self.counter % self.C == 0:
-                self.tcopy_target()
+                self.copy_target()
             return torch.mean(rewards).detach().item(), torch.mean(x).detach().item()
 
 class DDQNAgent(QAgent):
-    def __init__(self, C: int, **qagent_kwargs):
+    def __init__(self, C: int, *qagent_args, **qagent_kwargs):
         '''DDQNAgent constructor
         Inputs:
         -------
         C: int
             frequency of target network update in number of iterations
-        qagent_kwargs: dict-like
+        qagent_args, q_agent_wkargs:
             see QAgent
         '''
-        super().__init__(**qagent_kwargs)
+        super().__init__(*qagent_args, **qagent_kwargs)
         self.target_network = FCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
         self.copy_target()
         self.C = C
