@@ -1,12 +1,12 @@
 {
     "algorithm": "reinforce",
     "env": "LunarLander-v2",
-    "lr": 0.0001,
+    "lr": 0.0003,
     "gamma": 0.99,
     "num_episodes": 10000,
     "num_seeds": 3,
     "device": "cuda:0",
-    "fcs": [256, 128],
+    "fcs": [128, 64],
     "dir": "defaults/results",
     "name": "lunarlander-reinforce"
 }

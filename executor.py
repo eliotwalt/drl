@@ -4,31 +4,17 @@ from config import get_config, get_agent, get_trainer
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+from utils import make_nested_dir, smooth_curve, config_to_kwargs
 
 pid = os.getpid()
-prid = '[{}]'.format(pid)
 root = os.path.dirname(__file__)
-
-def make_dirs(d, n):
-    savedir = os.path.join(root, d)
-    if not os.path.isdir(savedir):
-        os.mkdir(savedir)
-    savedir = os.path.join(savedir, n)
-    if not os.path.isdir(savedir):
-        os.mkdir(savedir)
-
-def kwargs_from_config(config, kw_list):
-    return {kw: config[kw] for kw in kw_list if kw != 'self'}
-
-def smooth(y, window=100):
-    y_smooth = np.convolve(np.array(y), np.ones((100,))/100, mode='valid')
-    x_smooth = np.linspace(0, len(y), len(y_smooth))
-    return x_smooth, y_smooth
 
 def main():
     config = get_config()
     config['pid'] = pid
-    make_dirs(config['dir'], config['name'])
+    prid = '[{}-{}({})]'.format(config['algorithm'], config['env'], pid)
+    config['prid'] = prid
+    make_nested_dir(root, *(config['dir'], config['name']))
 
     print('{} starting {} environement.'.format(prid, config['env']))
     env = gym.make(config['env'])
@@ -39,9 +25,9 @@ def main():
     print('{} creating {} agent and trainer.'.format(prid, config['algorithm']))
     agent, agent_kwargs = get_agent(config['algorithm'])
     trainer, trainer_kwargs = get_trainer(config['algorithm'])
-    agent = agent(**kwargs_from_config(config, agent_kwargs))
+    agent = agent(**config_to_kwargs(config, agent_kwargs))
     config['agent'] = agent
-    trainer = trainer(**kwargs_from_config(config, trainer_kwargs))
+    trainer = trainer(**config_to_kwargs(config, trainer_kwargs))
 
     print('{} starting training.'.format(prid))
     summary = trainer.run()
@@ -53,7 +39,7 @@ def main():
     for metric_name, metric_vals in summary.items():
         figfile = os.path.join(agent.path, '{}.png'.format(metric_name))
         plt.plot(np.arange(1,len(metric_vals)+1), metric_vals, c='b', alpha=0.3)
-        x_smooth, y_smooth = smooth(metric_vals)
+        x_smooth, y_smooth = smooth_curve(metric_vals)
         plt.plot(x_smooth, y_smooth, c='b')
         plt.xlabel('episodes')
         plt.ylabel(metric_name)

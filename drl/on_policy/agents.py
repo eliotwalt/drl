@@ -66,9 +66,9 @@ class ReinforceAgent:
     
     def select_action(self, state):
         '''Reinforce.select_action: sample action from policy'''
-        action_probs, _ = self.network(state)
+        action_probs, baseline = self.network(state)
         m = Categorical(action_probs)
-        return m.sample().item()
+        return m.sample().item(), baseline.item()
 
     def compute_returns(self):
         '''Reinforce.compute_returns: compute s at each timestep'''
@@ -85,12 +85,11 @@ class ReinforceAgent:
         m = Categorical(action_probs)
         log_probs = m.log_prob(torch.Tensor(self.actions).long().to(self.device))
         losses = [- log_prob * (return_ - baseline_.item())
-                for (log_prob, return_, baseline_) in zip(log_probs, returns, baseline)]
+                  for (log_prob, return_, baseline_) in zip(log_probs, returns, baseline)]
         return torch.stack(losses).sum()
 
     def baseline_loss(self, baseline, returns):
         '''Reinforce.baseline_loss: compute baseline loss'''
-        # return F.mse_loss(baseline, returns, reduction='sum')
         return (returns-baseline)**2
         
     def learn(self):
@@ -103,4 +102,3 @@ class ReinforceAgent:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        return torch.sum(torch.Tensor(self.rewards)).detach().item(), torch.mean(baseline).detach().item()

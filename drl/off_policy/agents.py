@@ -63,7 +63,15 @@ class QAgent:
         self.replay_buffer.store(s, a, r, d)
 
     def select_action(self, state):
-        raise NotImplementedError
+        '''QAgent.select_action: epsilon-greedy policy'''
+        if random.uniform(0, 1) < self.epsilon:
+            action = random.choice(range(self.num_actions))
+            avg_q = 0
+        else:
+            q_values = self.network(state)
+            action = torch.argmax(q_values, dim=1).item()
+            avg_q = torch.mean(q_values, dim=1).item()
+        return action, avg_q
 
     def learn(self):
         raise NotImplementedError
@@ -91,14 +99,6 @@ class DQLAgent(QAgent):
         '''
         super().__init__(*qagent_args, **qagent_kwargs)
 
-    def select_action(self, state):
-        '''DQLAgent.select_action'''
-        if random.uniform(0, 1) < self.epsilon:
-            action = random.choice(range(self.num_actions))
-        else:
-            action = torch.argmax(self.network(state), dim=1).item()
-        return action
-
     def learn(self):
         '''DQLAgent.learn'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
@@ -108,7 +108,6 @@ class DQLAgent(QAgent):
             y = rewards + q
             x = torch.gather(self.network(states), 1, actions)
             self.propagate(x, y)
-            return torch.mean(rewards).detach().item(), torch.mean(x).detach().item()
 
 class DQNAgent(QAgent):
     def __init__(self, C: int, *qagent_args, **qagent_kwargs):
@@ -126,14 +125,6 @@ class DQNAgent(QAgent):
         self.C = C
         self.counter = 0
 
-    def select_action(self, state):
-        '''DQNAgent.select_action'''
-        if random.uniform(0, 1) < self.epsilon:
-            action = random.choice(range(self.num_actions))
-        else:
-            action = torch.argmax(self.network(state), dim=1).item()
-        return action
-
     def learn(self):
         '''DQNAgent.learn'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
@@ -146,7 +137,6 @@ class DQNAgent(QAgent):
             self.counter += 1
             if self.counter % self.C == 0:
                 self.copy_target()
-            return torch.mean(rewards).detach().item(), torch.mean(x).detach().item()
 
 class DDQNAgent(QAgent):
     def __init__(self, C: int, *qagent_args, **qagent_kwargs):
@@ -164,14 +154,6 @@ class DDQNAgent(QAgent):
         self.C = C
         self.counter = 0
 
-    def select_action(self, state):
-        '''DDQNAgent.select_action'''
-        if random.uniform(0, 1) < self.epsilon:
-            action = random.choice(range(self.num_actions))
-        else:
-            action = torch.argmax(self.network(state), dim=1).item()
-        return action
-
     def learn(self):
         '''DDQNAgent.learn'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
@@ -187,4 +169,3 @@ class DDQNAgent(QAgent):
             self.counter += 1
             if self.counter % self.C == 0:
                 self.copy_target()
-            return torch.mean(rewards).detach().item(), torch.mean(x).detach().item()
