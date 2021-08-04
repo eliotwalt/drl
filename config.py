@@ -18,6 +18,18 @@ algo_map = {
         'agent': DDQNAgent,
         'trainer': OnlineTrainer
     },
+    'dueling-dql': {
+        'agent': DuelingDQLAgent,
+        'trainer': OnlineTrainer,
+    },
+    'dueling-dqn': {
+        'agent': DuelingDQNAgent,
+        'trainer': OnlineTrainer,
+    },
+    'dueling-ddqn': {
+        'agent': DuelingDDQNAgent,
+        'trainer': OnlineTrainer,
+    },
     'reinforce': {
         'agent': ReinforceAgent,
         'trainer': EpisodicTrainer,

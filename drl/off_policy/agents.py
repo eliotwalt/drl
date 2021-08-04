@@ -4,7 +4,7 @@ import torch.optim as optim
 import random
 import os
 from typing import List, Optional
-from .models import FCQNetwork
+from ..models import FCQNetwork, DuelingFCQNetwork
 from .utils import ReplayBuffer
 
 class QAgent:
@@ -169,3 +169,40 @@ class DDQNAgent(QAgent):
             self.counter += 1
             if self.counter % self.C == 0:
                 self.copy_target()
+
+class DuelingDQLAgent(DQLAgent):
+    def __init__(self, *dql_args, **dql_kwargs):
+        '''DuelingDQLAgent constructor
+        Inputs:
+        -------
+        dql_args, dql_kwargs: 
+            see DQLAgent
+        '''
+        super().__init__(*dql_args, **dql_kwargs)
+        self.network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
+
+class DuelingDQNAgent(DQNAgent):
+    def __init__(self, *dqn_args, **dqn_kwargs):
+        '''DuelingDQNAgent constructor
+        Inputs:
+        -------
+        dqn_args, dqn_kwargs: 
+            see DQNAgent
+        '''
+        super().__init__(*dqn_args, **dqn_kwargs)
+        self.network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
+        self.target_network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
+        self.copy_target()
+
+class DuelingDDQNAgent(DDQNAgent):
+    def __init__(self, *ddqn_args, **ddqn_kwargs):
+        '''DuelingDDQNAgent constructor
+        Inputs:
+        -------
+        ddqn_args, ddqn_kwargs: 
+            see DDQNAgent
+        '''
+        super().__init__(*ddqn_args, **ddqn_kwargs)
+        self.network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
+        self.target_network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
+        self.copy_target()

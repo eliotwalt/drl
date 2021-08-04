@@ -1,5 +1,5 @@
 {
-    "algorithm": "dql",
+    "algorithm": "dueling-dql",
     "env": "LunarLander-v2",
     "epsilon": 0.05,
     "lr": 0.0005,
@@ -11,5 +11,5 @@
     "device": "cuda:0",
     "fcs": [256, 256],
     "dir": "defaults/search",
-    "name": "lunarlander-dql"
+    "name": "lunarlander-dueling-dql"
 }

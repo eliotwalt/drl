@@ -3,6 +3,10 @@ import gym
 import json
 import os
 
+# To automate (for lunarlander-v2)
+num_consecutive_episodes_solved = 100
+reward_threshold = 200
+
 class Trainer:
     def __init__(self, env: gym.Env, num_episodes: int, agent, num_seeds: int, prid: str=''):
         '''OnlineTrainer constructor
@@ -24,39 +28,48 @@ class Trainer:
         self.agent = agent
         self.num_seeds = num_seeds
         self.prid = prid
-        self.total_rewards = []
+        self.episode_rewards = []
+        self.episode_values = []
         self.avg_rewards = []
         self.avg_values = []        
-        self.max_reward = -float('inf')
+        self.max_rewards = [-float('inf')]
+        self.solved = 'not solved'
 
     def verbose_print(self, episode):
-        print('{0} episode {1}/{2} - avg reward: {3:.5f} ({4:.5f}), avg value: {5:.5f}'.format(
-            self.prid, str(episode).rjust(len(str(self.num_episodes))), 
-            self.num_episodes, self.avg_rewards[-1], self.max_reward,
-            self.avg_values[-1]
+        print('{0} episode {1}/{2} ({3}) - ep reward: {4:.5f}, avg reward: {5:.5f}, max reward: {6:.5f}'.format(
+            self.prid, str(episode).rjust(len(str(self.num_episodes))),
+            self.num_episodes, self.solved, self.episode_rewards[-1], 
+            self.avg_rewards[-1], self.max_rewards[-1],
         ))
 
     def run(self):
         '''Trainer.run: run all episodes'''
         for episode in range(self.num_episodes):
             self.run_epsiode()
+            if self.solved == 'not solved' and episode >= num_consecutive_episodes_solved and self.avg_rewards[-1] > reward_threshold:
+                self.solved = 'solved at {}'.format(episode+1)
             if episode == 0 or (episode+1) % 10 == 0:
                 episode_ = episode + 1            
                 self.verbose_print(episode_)
-            if self.avg_rewards[-1] > self.max_reward:
+            if self.episode_rewards[-1] > self.max_rewards[-1]:
                 self.agent.save_network()
                 self.save_metrics()
-                self.max_reward = self.avg_rewards[-1]
+                self.max_rewards.append(self.episode_rewards[-1])
                 if not (episode == 0 or (episode+1) % 10 == 0):
                     self.verbose_print(episode+1)
+            else:
+                self.max_rewards.append(self.max_rewards[-1])
+        self.max_rewards.pop(0)
         return self.summary()
     
     def summary(self):
         '''Trainer.summary: return dictionary of metrics'''
         return {
-            'total rewards': self.total_rewards,
-            'average rewards': self.avg_rewards,
+            'episode reward': self.episode_rewards,
+            'episode value': self.episode_values,
+            'average reward': self.avg_rewards,
             'average value': self.avg_values,
+            'max reward': self.max_rewards,
         }
 
     def save_metrics(self):
@@ -92,9 +105,13 @@ class OnlineTrainer(Trainer):
             episode_reward += reward
             episode_value += avg_value
             n += 1
-        self.total_rewards.append(episode_reward)
-        self.avg_rewards.append(episode_reward/n)
-        self.avg_values.append(episode_value/n)
+        self.episode_rewards.append(episode_reward)
+        self.episode_values.append(episode_value)
+        if len(self.episode_rewards) < num_consecutive_episodes_solved:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
+        else:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[num_consecutive_episodes_solved-1:])).item())
+        self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
 
 class EpisodicTrainer(Trainer):
     def __init__(self, *trainer_args, **trainer_kwargs):
@@ -124,7 +141,11 @@ class EpisodicTrainer(Trainer):
             episode_value += avg_value
             n += 1
         self.agent.learn()
-        self.total_rewards.append(episode_reward)
-        self.avg_rewards.append(episode_reward/n)
-        self.avg_values.append(episode_value/n)
+        self.episode_rewards.append(episode_reward)
+        self.episode_values.append(episode_value)
+        if len(self.episode_rewards) < num_consecutive_episodes_solved:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
+        else:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[num_consecutive_episodes_solved-1:])).item())
+        self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
         self.agent.empty()

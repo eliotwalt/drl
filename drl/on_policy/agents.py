@@ -6,7 +6,7 @@ from torch.distributions.categorical import Categorical
 import random
 import os
 from typing import List, Optional
-from .models import FCACNetwork
+from ..models import FCACNetwork
 import numpy as np
 
 eps = np.finfo(np.float32).eps.item()
