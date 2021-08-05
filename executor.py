@@ -37,14 +37,15 @@ def main():
 
     print('{} saving figure.'.format(prid))
     for metric_name, metric_vals in summary.items():
-        figfile = os.path.join(agent.path, '{}.png'.format(metric_name))
-        plt.plot(np.arange(1,len(metric_vals)+1), metric_vals, c='b', alpha=0.3)
-        x_smooth, y_smooth = smooth_curve(metric_vals)
-        plt.plot(x_smooth, y_smooth, c='b')
-        plt.xlabel('episodes')
-        plt.ylabel(metric_name)
-        plt.savefig(figfile)
-        plt.close()
+        if metric_name != 'solved at':
+            figfile = os.path.join(agent.path, '{}.png'.format(metric_name))
+            plt.plot(np.arange(1,len(metric_vals)+1), metric_vals, c='b', alpha=0.3)
+            x_smooth, y_smooth = smooth_curve(metric_vals)
+            plt.plot(x_smooth, y_smooth, c='b')
+            plt.xlabel('episodes')
+            plt.ylabel(metric_name)
+            plt.savefig(figfile)
+            plt.close()
 
     print('{} done.'.format(prid))
 

@@ -4,13 +4,13 @@
     "epsilon": 0.05,
     "lr": 0.0005,
     "gamma": 0.99,
-    "num_episodes": 5000,
+    "num_episodes": 2000,
     "batch_size": 256,
     "max_length": 1000000,
     "num_seeds": 3,
     "device": "cuda:0",
     "fcs": [256, 256],
     "C": 100,
-    "dir": "defaults/search",
+    "dir": "defaults/final",
     "name": "lunarlander-dqn"
 }

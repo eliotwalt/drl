@@ -34,6 +34,7 @@ class Trainer:
         self.avg_values = []        
         self.max_rewards = [-float('inf')]
         self.solved = 'not solved'
+        self.solved_at = None
 
     def verbose_print(self, episode):
         print('{0} episode {1}/{2} ({3}) - ep reward: {4:.5f}, avg reward: {5:.5f}, max reward: {6:.5f}'.format(
@@ -48,6 +49,7 @@ class Trainer:
             self.run_epsiode()
             if self.solved == 'not solved' and episode >= num_consecutive_episodes_solved and self.avg_rewards[-1] > reward_threshold:
                 self.solved = 'solved at {}'.format(episode+1)
+                self.solved_at = episode+1
             if episode == 0 or (episode+1) % 10 == 0:
                 episode_ = episode + 1            
                 self.verbose_print(episode_)
@@ -70,6 +72,7 @@ class Trainer:
             'average reward': self.avg_rewards,
             'average value': self.avg_values,
             'max reward': self.max_rewards,
+            'solved at': self.solved_at
         }
 
     def save_metrics(self):
