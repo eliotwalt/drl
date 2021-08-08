@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import random
 import os
-from typing import List, Optional
+from typing import List
 from ..models import FCQNetwork, DuelingFCQNetwork
 from .utils import ReplayBuffer
 
@@ -38,7 +38,7 @@ class QAgent:
             device to compute with
         dir: str
             name of directory to save to
-        name: Optional[str]
+        name: str
             name of the agent
         '''
         assert epsilon >= 0 and epsilon <= 1, f'epsilon must be a probability, i.e in [0,1]'
