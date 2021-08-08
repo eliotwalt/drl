@@ -77,7 +77,7 @@ class QAgent:
         raise NotImplementedError
 
     def propagate(self, x, y):
-        loss = self.criterion(x, y)
+        loss = self.criterion(x, y).to(self.device)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -186,23 +186,21 @@ class DuelingDQNAgent(DQNAgent):
         '''DuelingDQNAgent constructor
         Inputs:
         -------
-        dqn_args, dqn_kwargs: 
+        dqn_args, dqn_wkargs:
             see DQNAgent
         '''
         super().__init__(*dqn_args, **dqn_kwargs)
         self.network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
         self.target_network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
-        self.copy_target()
 
 class DuelingDDQNAgent(DDQNAgent):
     def __init__(self, *ddqn_args, **ddqn_kwargs):
-        '''DuelingDDQNAgent constructor
+        '''DuelingDQNAgent constructor
         Inputs:
         -------
-        ddqn_args, ddqn_kwargs: 
+        ddqn_args, ddqn_wkargs:
             see DDQNAgent
         '''
         super().__init__(*ddqn_args, **ddqn_kwargs)
         self.network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
         self.target_network = DuelingFCQNetwork(self.input_dim, self.fcs, self.num_actions).to(self.device)
-        self.copy_target()

@@ -98,7 +98,7 @@ class ReinforceAgent:
         states = torch.stack(self.states).squeeze(1).to(self.device)
         action_probs, baseline = self.network(states)
         loss = self.actor_loss(action_probs, returns, baseline) + self.baseline_loss(baseline, returns)
-        loss = loss.mean()
+        loss = loss.mean().to(self.device)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

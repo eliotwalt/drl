@@ -79,14 +79,14 @@ class DuelingFCQNetwork(nn.Module):
             layers.append(nn.Linear(fc, fcs[i+1]))
             layers.append(nn.ReLU())
         self.net = nn.Sequential(*layers)
-        self.advantage = nn.Sequential(nn.Linear(fcs[-1], num_actions), nn.Softmax(dim=-1))
+        self.advantage = nn.Linear(fcs[-1], num_actions)
         self.value = nn.Linear(fcs[-1], 1)
 
     def forward(self, states: torch.Tensor):
         x = self.net(states)
         adv = self.advantage(x)
         val = self.value(x)
-        return val + adv - torch.mean(adv, dim=0).unsqueeze(0) 
+        return val + (adv - adv.mean(dim=1, keepdim=True))
 
     def save(self, f):
         torch.save(self.state_dict(), f)

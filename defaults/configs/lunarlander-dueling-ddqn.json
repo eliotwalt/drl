@@ -4,7 +4,7 @@
     "epsilon": 0.05,
     "lr": 0.0005,
     "gamma": 0.99,
-    "num_episodes": 2500,
+    "num_episodes": 2000,
     "batch_size": 256,
     "max_length": 1000000,
     "num_seeds": 3,

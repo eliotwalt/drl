@@ -9,7 +9,7 @@ reward_threshold = 200
 
 class Trainer:
     def __init__(self, env: gym.Env, num_episodes: int, agent, num_seeds: int, prid: str=''):
-        '''OnlineTrainer constructor
+        '''Trainer constructor
         Inputs:
         -------
         env: gym.env
