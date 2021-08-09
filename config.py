@@ -33,7 +33,11 @@ algo_map = {
     'reinforce': {
         'agent': ReinforceAgent,
         'trainer': EpisodicTrainer,
-    }
+    },
+    'actor-critic': {
+        'agent': ActorCriticAgent,
+        'trainer': OnlineTrainer
+    },
 }
 
 def make_kwargs(class_):
