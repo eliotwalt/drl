@@ -36,7 +36,7 @@ class Trainer:
         self.solved = 'not solved'
         self.solved_at = None
 
-    def verbose_print(self, episode):
+    def verbose_print(self, episode: int):
         print('{0} episode {1}/{2} ({3}) - ep reward: {4:.5f}, avg reward: {5:.5f}, max reward: {6:.5f}'.format(
             self.prid, str(episode).rjust(len(str(self.num_episodes))),
             self.num_episodes, self.solved, self.episode_rewards[-1], 
@@ -102,7 +102,7 @@ class OnlineTrainer(Trainer):
             action, avg_value = self.agent.select_action(state.to(self.agent.device))
             state_, reward, done, _ = self.env.step(action)
             state_ = torch.from_numpy(state_).to(torch.float32).unsqueeze(0)
-            self.agent.store(state, action, reward, done)
+            self.agent.store(state, state_, action, reward, done)
             state = state_.clone()
             self.agent.learn()
             episode_reward += reward
@@ -113,7 +113,7 @@ class OnlineTrainer(Trainer):
         if len(self.episode_rewards) < num_consecutive_episodes_solved:
             self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
         else:
-            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[num_consecutive_episodes_solved-1:])).item())
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[-num_consecutive_episodes_solved:])).item())
         self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
 
 class EpisodicTrainer(Trainer):
@@ -138,7 +138,7 @@ class EpisodicTrainer(Trainer):
             action, avg_value = self.agent.select_action(state.to(self.agent.device))
             state_, reward, done, _ = self.env.step(action)
             state_ = torch.from_numpy(state_).to(torch.float32).unsqueeze(0)
-            self.agent.store(state, action, reward)
+            self.agent.store(state, state_, action, reward)
             state = state_.clone()
             episode_reward += reward
             episode_value += avg_value
@@ -149,6 +149,6 @@ class EpisodicTrainer(Trainer):
         if len(self.episode_rewards) < num_consecutive_episodes_solved:
             self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
         else:
-            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[num_consecutive_episodes_solved-1:])).item())
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[-num_consecutive_episodes_solved:])).item())
         self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
         self.agent.empty()

@@ -4,6 +4,7 @@ from drl.off_policy.agents import *
 from drl.on_policy.agents import *
 from drl.trainers import *
 import inspect
+from typing import Any
 
 algo_map = {
     'dql': {
@@ -40,7 +41,7 @@ algo_map = {
     },
 }
 
-def make_kwargs(class_):
+def make_kwargs(class_: Any):
     baseclasses = class_.__mro__
     kwargs = []
     for baseclass in baseclasses:
@@ -55,9 +56,9 @@ def get_config():
         cfg = json.load(jsf)
     return cfg
 
-def get_agent(algo):
+def get_agent(algo: str):
     return algo_map[algo.lower()]['agent'], make_kwargs(algo_map[algo.lower()]['agent'])
 
-def get_trainer(algo):
+def get_trainer(algo: str):
     return algo_map[algo.lower()]['trainer'], make_kwargs(algo_map[algo.lower()]['trainer'])
     

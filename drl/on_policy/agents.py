@@ -53,8 +53,8 @@ class ReinforceAgent:
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
-    def store(self, s, a, r):
-        '''ReinforceAgent.store(self, s, a, r): store transition'''
+    def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float):
+        '''ReinforceAgent.store(self, s, s_, a, r): store transition'''
         self.states.append(s)
         self.actions.append(a)
         self.rewards.append(r)
@@ -65,7 +65,7 @@ class ReinforceAgent:
         self.actions = []
         self.rewards = []
     
-    def select_action(self, state):
+    def select_action(self, state: torch.Tensor):
         '''ReinforceAgent.select_action: sample action from policy'''
         action_probs, baseline = self.network(state)
         m = Categorical(action_probs)
@@ -76,12 +76,12 @@ class ReinforceAgent:
         returns = []
         ret = 0
         for r in self.rewards[::-1]:
-            ret= r + self.gamma*ret
+            ret = r + self.gamma*ret
             returns.insert(0, ret)
         returns = torch.Tensor(returns).unsqueeze(-1)
         return (returns - returns.mean()) / (returns.std() + eps)
         
-    def actor_loss(self, action_probs, returns, baseline):
+    def actor_loss(self, action_probs: torch.Tensor, returns: torch.Tensor, baseline: torch.Tensor):
         '''ReinforceAgent.actor_loss: compute actor loss'''
         m = Categorical(action_probs)
         log_probs = m.log_prob(torch.Tensor(self.actions).long().to(self.device))
@@ -89,7 +89,7 @@ class ReinforceAgent:
                   for (log_prob, return_, baseline_) in zip(log_probs, returns, baseline)]
         return torch.stack(losses).sum()
 
-    def baseline_loss(self, baseline, returns):
+    def baseline_loss(self, baseline: torch.Tensor, returns: torch.Tensor):
         '''ReinforceAgent.baseline_loss: compute baseline loss'''
         return (returns-baseline)**2
         
@@ -139,43 +139,41 @@ class ActorCriticAgent:
         self.fcs = fcs
         self.network = FCACNetwork(input_dim, fcs, num_actions).to(device)
         self.optimizer = optim.Adam(self.network.parameters(), lr)
-        self.state = None
-        self.action = None
         self.reward = None
-        self.state_ = None
         self.done = None
+        self.action_log_prob = None
+        self.value = None
 
     def save_network(self):
         '''ActorCriticAgent.save_network(): saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
-    def store(self, s, a, r, d):
-        '''ActorCriticAgent.store(s, a, r, d): store transition'''
-        if self.state is not None:
-            self.state_ = self.state.to(self.device)
+    def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float, d: bool):
+        '''ActorCriticAgent.store(s, s_, a, r, d): store transition'''
         self.state = s.to(self.device)
-        self.action = torch.Tensor([a]).to(self.device).long()
-        self.reward = torch.Tensor([r]).to(self.device)
+        self.state_ = s_.to(self.device)
+        self.action = torch.Tensor([a]).long().to(self.device)
+        self.reward = torch.Tensor([r]).squeeze().float().to(self.device)
         self.done = d
 
-    def select_action(self, state):
+    def select_action(self, state: torch.Tensor):
         '''ActorCriticAgent.select_action: sample action from policy'''
-        action_probs, baseline = self.network(state)
+        action_probs, value = self.network(state)
         m = Categorical(action_probs)
-        return m.sample().item(), baseline.item()
+        action = m.sample()
+        return action.item(), value.item()
 
     def learn(self):
-        '''ActorCriticAgent.learn: update actor and critic network'''
-        if self.state_ is not None and self.done is not True:
-            action_probs, value = self.network(self.state)
-            _, value_ = self.network(self.state_)
-            m = Categorical(action_probs)
-            log_probs = m.log_prob(torch.Tensor([self.action]).long().to(self.device))
-            delta = (self.reward + self.gamma*value_.detach() - value)
-            critic_loss = delta**2
-            actor_loss = - delta.detach() * log_probs
-            loss = (actor_loss + critic_loss).to(self.device)
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+        '''ActorCritic.learn(s_): apply online update'''
+        action_probs, value = self.network(self.state)
+        value_ = 0. if self.done else self.network(self.state_)[1]
+        m = Categorical(action_probs)
+        action_log_prob = m.log_prob(self.action).to(self.device)
+        delta = self.reward + self.gamma * value_ - value
+        critic_loss = delta ** 2
+        actor_loss = - delta * action_log_prob
+        loss = critic_loss + actor_loss
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()

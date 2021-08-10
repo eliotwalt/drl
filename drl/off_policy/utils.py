@@ -24,20 +24,24 @@ class ReplayBuffer:
         self.dones = torch.empty(self.max_length).to(bool)
         self.pointer = None
 
-    def store(self, s: torch.Tensor, a: int, r: float, d: bool):
+    def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float, d: bool):
         '''ReplayBuffer.store method: store state/action/value
         Inputs:
         -------
         s: torch.Tensor
             state tensor (from which action a is taken)
+        s_: torch.Tensor
+            next state tensor (resulting from taking action a at state s)
         a: int
             action index
         r: float
             reward value
         '''
-        if self.pointer == None or self.pointer == self.max_length - 1:
+        if self.pointer == None or self.pointer == self.max_length:
             self.pointer = 0
+        pointer_ = 0 if self.pointer == self.max_length - 1 else self.pointer + 1
         self.states[self.pointer] = s
+        self.states[pointer_] = s_ 
         self.actions[self.pointer] = a
         self.rewards[self.pointer] = r
         self.dones[self.pointer] = d
@@ -45,10 +49,12 @@ class ReplayBuffer:
 
     def sample(self):
         '''ReplayBuffer.sample method: sample a minibatch'''
-        if self.pointer == None: # Or self.pointer < self.batch_size ?
+        if self.pointer == None: # At least, two states
             return None, None, None, None, None
         else:
             idx = torch.randperm(self.pointer)[:self.batch_size]
+            idx_ = idx + 1
+            idx_[idx_==self.max_length] = 0
             s = self.states[idx]
             a = self.actions[idx]
             r = self.rewards[idx]

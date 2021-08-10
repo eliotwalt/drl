@@ -59,10 +59,11 @@ class QAgent:
         self.criterion = nn.MSELoss()
         self.optimizer = optim.Adam(self.network.parameters(), lr)
     
-    def store(self, s, a, r, d):
-        self.replay_buffer.store(s, a, r, d)
+    def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float, d: bool):
+        '''QAgent.store(s, a, r, d): store transition'''
+        self.replay_buffer.store(s, s_, a, r, d)
 
-    def select_action(self, state):
+    def select_action(self, state: torch.Tensor):
         '''QAgent.select_action: epsilon-greedy policy'''
         if random.uniform(0, 1) < self.epsilon:
             action = random.choice(range(self.num_actions))
@@ -76,16 +77,19 @@ class QAgent:
     def learn(self):
         raise NotImplementedError
 
-    def propagate(self, x, y):
+    def propagate(self, x: torch.Tensor, y: torch.Tensor):
+        '''QAgent.propagate(x, y): compute and apply loss'''
         loss = self.criterion(x, y).to(self.device)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
     def copy_target(self):
+        '''QAgent.copy_target(): online network into target network'''
         self.target_network.load_state_dict(self.network.state_dict())
 
     def save_network(self):
+        '''QAgent.save_network(): saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
@@ -100,7 +104,7 @@ class DQLAgent(QAgent):
         super().__init__(*qagent_args, **qagent_kwargs)
 
     def learn(self):
-        '''DQLAgent.learn'''
+        '''DQLAgent.learn(): compute and apply update'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
         if states is not None:
             q = torch.zeros_like(rewards)
@@ -126,7 +130,7 @@ class DQNAgent(QAgent):
         self.counter = 0
 
     def learn(self):
-        '''DQNAgent.learn'''
+        '''DQNAgent.learn(): compute and apply update'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
         if states is not None:
             q = torch.zeros_like(rewards)
@@ -155,7 +159,7 @@ class DDQNAgent(QAgent):
         self.counter = 0
 
     def learn(self):
-        '''DDQNAgent.learn'''
+        '''DDQNAgent.learn(): compute and apply update'''
         states, actions, rewards, states_, dones = self.replay_buffer.sample()
         if states is not None:
             q = torch.zeros_like(rewards)
