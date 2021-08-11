@@ -19,6 +19,7 @@ class ReplayBuffer:
         self.max_length = max_length
         self.device = device
         self.states = torch.empty(self.max_length, self.dim).to(torch.float32)
+        self.states_ = torch.empty(self.max_length, self.dim).to(torch.float32)
         self.actions = torch.empty(self.max_length, 1).to(torch.long)
         self.rewards = torch.empty(self.max_length, 1).to(torch.float32)
         self.dones = torch.empty(self.max_length).to(bool)
@@ -39,9 +40,8 @@ class ReplayBuffer:
         '''
         if self.pointer == None or self.pointer == self.max_length:
             self.pointer = 0
-        pointer_ = 0 if self.pointer == self.max_length - 1 else self.pointer + 1
         self.states[self.pointer] = s
-        self.states[pointer_] = s_ 
+        self.states_[self.pointer] = s_ 
         self.actions[self.pointer] = a
         self.rewards[self.pointer] = r
         self.dones[self.pointer] = d
@@ -53,12 +53,10 @@ class ReplayBuffer:
             return None, None, None, None, None
         else:
             idx = torch.randperm(self.pointer)[:self.batch_size]
-            idx_ = idx + 1
-            idx_[idx_==self.max_length] = 0
             s = self.states[idx]
             a = self.actions[idx]
             r = self.rewards[idx]
-            s_ = self.states[idx+1]
+            s_ = self.states_[idx]
             d = self.dones[idx]
             return s.to(self.device), a.to(self.device), r.to(self.device), s_.to(self.device), d
 
