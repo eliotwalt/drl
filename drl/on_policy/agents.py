@@ -67,9 +67,9 @@ class ReinforceAgent:
     
     def select_action(self, state: torch.Tensor):
         '''ReinforceAgent.select_action: sample action from policy'''
-        action_probs, baseline = self.network(state)
+        action_probs, value = self.network(state)
         m = Categorical(action_probs)
-        return m.sample().item(), baseline.item()
+        return m.sample().item(), value.item()
 
     def compute_returns(self):
         '''ReinforceAgent.compute_returns: compute s at each timestep'''
@@ -81,24 +81,24 @@ class ReinforceAgent:
         returns = torch.Tensor(returns).unsqueeze(-1)
         return (returns - returns.mean()) / (returns.std() + eps)
         
-    def actor_loss(self, action_probs: torch.Tensor, returns: torch.Tensor, baseline: torch.Tensor):
+    def actor_loss(self, action_probs: torch.Tensor, returns: torch.Tensor, value: torch.Tensor):
         '''ReinforceAgent.actor_loss: compute actor loss'''
         m = Categorical(action_probs)
         log_probs = m.log_prob(torch.Tensor(self.actions).long().to(self.device))
-        losses = [- log_prob * (return_ - baseline_.item())
-                  for (log_prob, return_, baseline_) in zip(log_probs, returns, baseline)]
+        losses = [- log_prob * (return_ - value_.item())
+                  for (log_prob, return_, value_) in zip(log_probs, returns, value)]
         return torch.stack(losses).sum()
 
-    def baseline_loss(self, baseline: torch.Tensor, returns: torch.Tensor):
-        '''ReinforceAgent.baseline_loss: compute baseline loss'''
-        return (returns-baseline)**2
+    def critic_loss(self, value: torch.Tensor, returns: torch.Tensor):
+        '''ReinforceAgent.critic_loss: compute value loss'''
+        return (returns-value)**2
         
     def learn(self):
         '''ReinforceAgent.learn: update actor and critic network'''
         returns = self.compute_returns().to(self.device)
         states = torch.stack(self.states).squeeze(1).to(self.device)
-        action_probs, baseline = self.network(states)
-        loss = self.actor_loss(action_probs, returns, baseline) + self.baseline_loss(baseline, returns)
+        action_probs, value = self.network(states)
+        loss = self.actor_loss(action_probs, returns, value) + self.critic_loss(value, returns)
         loss = loss.mean().to(self.device)
         self.optimizer.zero_grad()
         loss.backward()
