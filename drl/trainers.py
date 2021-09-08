@@ -152,3 +152,31 @@ class EpisodicTrainer(Trainer):
             self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[-num_consecutive_episodes_solved:])).item())
         self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
         self.agent.empty()
+
+class ParralelEnvsMultiStepsTrainer(Trainer): # A2C
+    def __init__(self, max_iters: int, *trainer_args, **trainer_kwargs):
+        '''ParralelEnvsMultiStepsTrainer constructor
+        Inputs:
+        -------
+        max_iters: int
+            maximum number of iterations before update
+        trainer_args, trainer_kwargs: 
+            see Trainer
+        '''
+        super().__init__(*trainer_args, **trainer_kwargs)
+        self.max_iters = max_iters
+    
+    def run_epsiode(self):
+        '''ParralelEnvsMultiStepsTrainer.run_episode: run one episode'''
+        states = self.env.reset()
+        states = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
+        dones = np.array([False]*len(self.env))
+        episode_reward = 0
+        episode_value = 0
+        n = 0
+        while False in dones and n < self.max_iters:
+            pass
+            # TBD
+
+class ParralelAgentsMultiStepsTrainer(Trainer): # A3C
+    pass

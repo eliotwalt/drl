@@ -49,18 +49,18 @@ class ReinforceAgent:
         self.empty()
 
     def save_network(self):
-        '''ReinforceAgent.save_network(): saves network'''
+        '''ReinforceAgent.save_network: saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
     def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float):
-        '''ReinforceAgent.store(self, s, s_, a, r): store transition'''
+        '''ReinforceAgent.store: store transition'''
         self.states.append(s)
         self.actions.append(a)
         self.rewards.append(r)
 
     def empty(self):
-        '''ReinforceAgent.empty(self): empty transitions lists'''
+        '''ReinforceAgent.empty: empty transitions lists'''
         self.states = []
         self.actions = []
         self.rewards = []
@@ -141,16 +141,15 @@ class ActorCriticAgent:
         self.optimizer = optim.Adam(self.network.parameters(), lr)
         self.reward = None
         self.done = None
-        self.action_log_prob = None
         self.value = None
 
     def save_network(self):
-        '''ActorCriticAgent.save_network(): saves network'''
+        '''ActorCriticAgent.save_network: saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 
     def store(self, s: torch.Tensor, s_: torch.Tensor, a: int, r: float, d: bool):
-        '''ActorCriticAgent.store(s, s_, a, r, d): store transition'''
+        '''ActorCriticAgent.store: store transition'''
         self.state = s.to(self.device)
         self.state_ = s_.to(self.device)
         self.action = torch.Tensor([a]).long().to(self.device)
@@ -165,7 +164,7 @@ class ActorCriticAgent:
         return action.item(), value.item()
 
     def learn(self):
-        '''ActorCritic.learn(s_): apply online update'''
+        '''ActorCritic.learn: apply online update'''
         action_probs, value = self.network(self.state)
         value_ = 0. if self.done else self.network(self.state_)[1]
         m = Categorical(action_probs)
@@ -177,3 +176,15 @@ class ActorCriticAgent:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+class A2CAgent:
+    def __init__(self, ):
+        pass
+
+class A3CWorker:
+    def __init__(self, ):
+        pass
+
+class A3CAgent:
+    def __init__(self, ):
+        pass

@@ -5,40 +5,55 @@ from drl.on_policy.agents import *
 from drl.trainers import *
 import inspect
 from typing import Any
+import gym
+from drl.on_policy.utils import ParallelEnv
 
 algo_map = {
     'dql': {
         'agent': DQLAgent,
-        'trainer': OnlineTrainer
+        'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'dqn': {
         'agent': DQNAgent,
-        'trainer': OnlineTrainer
+        'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'ddqn': {
         'agent': DDQNAgent,
-        'trainer': OnlineTrainer
+        'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'dueling-dql': {
         'agent': DuelingDQLAgent,
         'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'dueling-dqn': {
         'agent': DuelingDQNAgent,
         'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'dueling-ddqn': {
         'agent': DuelingDDQNAgent,
         'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
     'reinforce': {
         'agent': ReinforceAgent,
         'trainer': EpisodicTrainer,
+        'env_make': gym.make
     },
     'actor-critic': {
         'agent': ActorCriticAgent,
-        'trainer': OnlineTrainer
+        'trainer': OnlineTrainer,
+        'env_make': gym.make
     },
+    'a2c': {
+        'agent': A2CAgent,
+        'trainer': ParralelEnvsMultiStepsTrainer,
+        'env_make': ParallelEnv,
+    }
 }
 
 def make_kwargs(class_: Any):
@@ -61,4 +76,11 @@ def get_agent(algo: str):
 
 def get_trainer(algo: str):
     return algo_map[algo.lower()]['trainer'], make_kwargs(algo_map[algo.lower()]['trainer'])
+
+def get_env_maker(algo: str):
+    constructor = algo_map[algo.lower()]['env_make']
+    if constructor == gym.make:
+        return constructor, ['env']
+    else:
+        return constructor, make_kwargs(constructor)
     

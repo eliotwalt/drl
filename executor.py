@@ -1,6 +1,6 @@
 import gym
 import os
-from config import get_config, get_agent, get_trainer
+from config import get_config, get_agent, get_trainer, get_env_maker
 import json
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +17,8 @@ def main():
     make_nested_dir(root, *(config['dir'], config['name']))
 
     print('{} starting {} environement.'.format(prid, config['env']))
-    env = gym.make(config['env'])
+    env, env_kwargs = get_env_maker(config['algorithm'])
+    env = env(**config_to_kwargs(config, env_kwargs))
     config['env'] = env
     config['num_actions'] = env.action_space.n
     config['input_dim'] = env.observation_space.shape[0]
@@ -31,6 +32,7 @@ def main():
 
     print('{} starting training.'.format(prid))
     summary = trainer.run()
+    env.close()
 
     print('{} writing results and model.'.format(prid))
     trainer.save_metrics()
