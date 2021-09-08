@@ -8,46 +8,49 @@ from typing import Any
 import gym
 from drl.on_policy.utils import ParallelEnv
 
+def make_(env: str):
+    return gym.make(id=env)
+
 algo_map = {
     'dql': {
         'agent': DQLAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'dqn': {
         'agent': DQNAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'ddqn': {
         'agent': DDQNAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'dueling-dql': {
         'agent': DuelingDQLAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'dueling-dqn': {
         'agent': DuelingDQNAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'dueling-ddqn': {
         'agent': DuelingDDQNAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'reinforce': {
         'agent': ReinforceAgent,
         'trainer': EpisodicTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'actor-critic': {
         'agent': ActorCriticAgent,
         'trainer': OnlineTrainer,
-        'env_make': gym.make
+        'env_make': make_
     },
     'a2c': {
         'agent': A2CAgent,

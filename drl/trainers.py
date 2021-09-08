@@ -169,14 +169,29 @@ class ParralelEnvsMultiStepsTrainer(Trainer): # A2C
     def run_epsiode(self):
         '''ParralelEnvsMultiStepsTrainer.run_episode: run one episode'''
         states = self.env.reset()
-        states = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
-        dones = np.array([False]*len(self.env))
+        states = torch.from_numpy(states).to(torch.float32)
+        dones = [False]*len(self.env)
         episode_reward = 0
         episode_value = 0
         n = 0
         while False in dones and n < self.max_iters:
-            pass
-            # TBD
+            actions, avg_value = self.agent.select_action(states.to(self.agent.device))
+            states_, rewards, dones, _ = self.env.step(actions)
+            states_ = torch.from_numpy(states_).to(torch.float32)
+            self.agent.store(states, states_, actions, rewards, dones)
+            states = states_.clone()
+            episode_reward += rewards.mean()
+            episode_value += avg_value
+            n += 1
+        self.agent.learn()
+        self.episode_rewards.append(episode_reward)
+        self.episode_values.append(episode_value)
+        if len(self.episode_rewards) < num_consecutive_episodes_solved:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
+        else:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[-num_consecutive_episodes_solved:])).item())
+        self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
+        self.agent.empty()
 
 class ParralelAgentsMultiStepsTrainer(Trainer): # A3C
     pass

@@ -1,4 +1,4 @@
-# Slightly adapted from by https://github.com/Atharv24/SnakeGym/blob/master/lib/utils/multiprocessing_env.py
+# Slightly adapted from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/subproc_vec_env.py
 import numpy as np
 import gym
 import multiprocessing as mp
