@@ -1,4 +1,4 @@
-# Slightly adapted from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/subproc_vec_env.py
+# Adapted from https://github.com/openai/baselines/blob/master/baselines/common/vec_env/subproc_vec_env.py
 import numpy as np
 import gym
 import multiprocessing as mp

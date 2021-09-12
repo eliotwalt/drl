@@ -6,7 +6,7 @@ from drl.trainers import *
 import inspect
 from typing import Any
 import gym
-from drl.on_policy.utils import ParallelEnv
+from drl.on_policy.envs import ParallelEnv
 
 def make_(env: str):
     return gym.make(id=env)
@@ -54,7 +54,7 @@ algo_map = {
     },
     'a2c': {
         'agent': A2CAgent,
-        'trainer': ParralelEnvsMultiStepsTrainer,
+        'trainer': MultiEnvsTrainer,
         'env_make': ParallelEnv,
     }
 }

@@ -5,7 +5,7 @@ import random
 import os
 from typing import List
 from ..models import FCQNetwork, DuelingFCQNetwork
-from .utils import ReplayBuffer
+from .replay_buffer import ReplayBuffer
 
 class QAgent:
     def __init__(self, num_actions: int, fcs: List[int], num_episodes: int, epsilon: float, lr: float, 
