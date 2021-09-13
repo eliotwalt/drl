@@ -1,6 +1,6 @@
 # Deep Reinforcement Learning Overview
 
-This repository contains implementations of different classic Deep Reinforcement Learning algorithms using PyTorch and OpenAI Gym environements. Currently, only vector states environments are supported such as `LunarLander-v2`.
+This repository contains implementations of different classic Model-Free Deep Reinforcement Learning algorithms using PyTorch and OpenAI Gym environements. Currently, only vector states environments are supported such as `LunarLander-v2`.
 
 ## Structure
 The repository is structured as follows:
