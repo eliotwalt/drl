@@ -228,7 +228,7 @@ class A2CAgent:
         self.clear()
 
     def save_network(self):
-        '''ActorCriticAgent.save_network: saves network'''
+        '''A2CAgent.save_network: saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
 

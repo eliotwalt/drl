@@ -12,5 +12,5 @@
     "device": "cuda:0",
     "fcs": [256, 256],
     "dir": "defaults/final",
-    "name": "lunarlander-a2c-short"
+    "name": "lunarlander-a2c"
 }
