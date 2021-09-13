@@ -45,3 +45,9 @@ Agent, trainer and envrionements are created based on a JSON configuration file 
 python exectuor.py -c defaults/configs/lunarlander-v2.json
 ```
 
+## Todo
+
+- Fix Dueling architectures
+- Continuous action space algorithms: ddpg, ppo, sac, ...
+- Streamline API
+
