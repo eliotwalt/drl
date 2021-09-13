@@ -7,8 +7,6 @@ import random
 import os
 from typing import List, Optional
 from ..models import FCACNetwork
-import numpy as np
-from .memory import AdvantageMemoryStack
 
 eps = np.finfo(np.float32).eps.item()
 
@@ -180,7 +178,7 @@ class ActorCriticAgent:
         self.optimizer.step()
 
 class A2CAgent:
-    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int,
+    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int, critic_coeff: float,
                  max_iters: int, beta: float, input_dim: int, device: torch.device, dir: str, name: str):
         '''A2CAgent constructor
         Inputs:
@@ -197,6 +195,8 @@ class A2CAgent:
             discount factor
         num_envs: int
             number of environment the agent received observations from
+        critic_coeff: float
+            coefficient for critic loss
         max_iters: int
             number of iteration before updating
         beta: float
@@ -214,6 +214,7 @@ class A2CAgent:
         self.lr = lr
         self.gamma = gamma
         self.num_envs = num_envs
+        self.critic_coeff = critic_coeff
         self.max_iters = max_iters
         self.beta = beta
         self.input_dim = input_dim
@@ -223,12 +224,40 @@ class A2CAgent:
         self.fcs = fcs
         self.network = FCACNetwork(input_dim, fcs, num_actions).to(device)
         self.optimizer = optim.Adam(self.network.parameters(), lr)
-        self.memories = AdvantageMemoryStack(gamma, max_iters, num_envs, device)
+        self.clear()
 
     def save_network(self):
         '''ActorCriticAgent.save_network: saves network'''
         f = os.path.join(self.path, 'network.pth')
         self.network.save(f)
+
+    def clear(self):
+        '''A2CAgent.clear: clear memories'''
+        self.log_probs = []
+        self.values = []
+        self.next_values = []
+        self.rewards = []
+        self.dones = []
+        self.entropies = []
+
+    def to_torch(self):
+        '''A2CAgent.to_torch: turn memories into torch tensors'''
+        self.log_probs = torch.cat(self.log_probs).to(self.device)
+        self.values = torch.cat(self.values).to(self.device)
+        self.next_values = torch.cat(self.next_values).to(self.device)
+        self.rewards = torch.cat(self.rewards).to(self.device)
+        self.dones = torch.cat(self.dones).to(self.device)
+        self.entropies = torch.Tensor(self.entropies).to(self.device)
+    
+    def store(self, rewards, actions, values, next_values, dones, dists):
+        '''A2CAgent.store: store transitions'''
+        self.log_probs.append(dists.log_prob(actions))
+        self.values.append(values.squeeze())
+        self.next_values.append(next_values.squeeze())
+        self.rewards.append(rewards)
+        self.dones.append(dones)
+        self.entropies.append(dists.entropy().mean())
+
 
     def select_actions(self, states: torch.Tensor):
         '''A2CAgent.select_actions: select actions based on states'''
@@ -237,236 +266,29 @@ class A2CAgent:
         actions = dists.sample()
         return actions, values, dists
 
-    def store(self, rewards: torch.Tensor, actions: torch.Tensor, values: torch.Tensor, dones: torch.Tensor, dists: Categorical):
-        '''A2CAgent.store: store transitions'''
-        self.memories.store(rewards, actions, values, dones, dists)
+    def compute_returns(self):
+        '''A2CAgent.compute_returns: compute batch of returns'''
+        returns = []
+        R = self.next_values[-1]*(1-self.dones[-1])
+        for t in reversed(range(len(self.rewards))):
+            R = self.rewards[t] + self.gamma * R * (1-self.dones[t])
+            returns.insert(0,R)
+        return torch.cat(returns).to(self.device)
 
     def learn(self):
-        '''A2CAgent.learn: apply update to network parameters'''
-        returns, values, log_probs, mean_entropies = self.memories.get_batch()
-        if returns is not None:
-            advantages = returns.detach() - values
-            actor_loss = -(log_probs*advantages.detach()).mean()
-            critic_loss = advantages.pow(2).mean()
-            loss = actor_loss + critic_loss - self.beta*mean_entropies.mean()
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-
-
-# class A2CAgent:
-#     def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int,
-#                  beta: float, input_dim: int, device: torch.device, dir: str, name: str):
-#         '''A2CAgent constructor
-#         Inputs:
-#         -------
-#         num_actions: int
-#             number of actions
-#         fcs: list
-#             number of neurons in each hidden fc layer (i.e excluding input and output)
-#         num_episodes: int
-#             number of episodes to train for
-#         lr: float
-#             learning rate
-#         gamma: float
-#             discount factor
-#         num_envs: int
-#             number of environment the agent received observations from
-#         beta: float
-#             entropy term control parameter
-#         input_dim: int
-#             dimensionality of the input
-#         device: torch.device
-#             device to compute with
-#         dir: str
-#             name of directory to save to
-#         name: str
-#             name of the agent
-#         '''
-#         self.num_actions = num_actions
-#         self.lr = lr
-#         self.gamma = gamma
-#         self.num_envs = num_envs
-#         self.beta = beta
-#         self.input_dim = input_dim
-#         self.device = device
-#         self.name = name
-#         self.path = os.path.join(dir, name)
-#         self.fcs = fcs
-#         self.network = FCACNetwork(input_dim, fcs, num_actions).to(device)
-#         self.optimizer = optim.Adam(self.network.parameters(), lr)
-#         self.empty()
-
-#     def save_network(self):
-#         '''ActorCriticAgent.save_network: saves network'''
-#         f = os.path.join(self.path, 'network.pth')
-#         self.network.save(f)
-
-#     def store(self, s: torch.Tensor, s_: torch.Tensor, a: np.ndarray, r: np.ndarray, d: np.ndarray):
-#         '''A2CAgent.store: store transition'''
-#         self.states = torch.cat([self.states, s.unsqueeze(1)], dim=1)
-#         self.actions = torch.cat([self.actions, torch.from_numpy(a).unsqueeze(1).long()], dim=1)
-#         self.rewards = torch.cat([self.rewards, torch.from_numpy(r).unsqueeze(1).to(torch.float32)], dim=1)
-#         self.dones = torch.cat([self.dones, torch.from_numpy(d).unsqueeze(1).long()], dim=1)
-
-#     def empty(self):
-#         '''A2CAgent.empty: empty transitions lists'''
-#         self.states = torch.empty(0).to(torch.float32)
-#         self.actions = torch.empty(0).long()
-#         self.rewards = torch.empty(0).to(torch.float32)
-#         self.dones = torch.empty(0).long()
-    
-#     def select_action(self, states: torch.Tensor):
-#         '''A2CAgent.select_action: sample action from policy'''
-#         action_probs, value = self.network(states)
-#         m = Categorical(action_probs)
-#         return m.sample().detach().cpu().numpy(), value.mean().item()
-
-#     def actor_loss(self, ret, value, probs, log_probs):
-#         '''A2CAgent.actor_loss: compute actor loss'''
-#         # pg = -log_probs*(ret-value)
-#         # entropy = self.beta*probs*log_probs
-#         # return pg + entropy
-#         return -log_probs*(ret-value)
-
-#     def critic_loss(self, ret, value):
-#         '''A2CAgent.critic_loss: compute actor loss'''
-#         return (ret-value)**2
-
-#     def learn(self):
-#         '''A2CAgent.learn: update actor and critic weights'''
-#         N, T, d = self.states.shape
-#         action_probs, values = self.network(self.states.reshape(N*T,d).to(self.device))
-#         action_probs = action_probs.reshape(N, T, -1)
-#         m = Categorical(action_probs)
-#         action_log_probs = m.log_prob(self.actions.long().to(self.device))
-#         values = values.reshape(self.rewards.shape)
-#         actor_loss = 0
-#         critic_loss = 0
-#         for i in range(N):
-#             tmask = (self.dones[i]==1)[0]
-#             tmax = T-1 if not tmask.any() else torch.min(tmask.long())-1
-#             ret = values[i,T] if tmask.any() else 0
-#             for t in range(tmax, 0, -1):
-#                 ret = self.rewards[i,t] + self.gamma*ret
-#                 actor_loss += self.actor_loss(ret, values[i,t], action_probs[i,t,self.actions[i,t].long()], action_log_probs[i,t])
-#                 critic_loss += self.critic_loss(ret, values[i, t])
-#         loss = actor_loss + critic_loss - self.beta*m.entropy().mean()
-#         self.optimizer.zero_grad()
-#         loss.backward()
-#         self.optimizer.step()
-
-# class A2CAgent:
-#     def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int,
-#                  beta: float, input_dim: int, device: torch.device, dir: str, name: str):
-#         '''A2CAgent constructor
-#         Inputs:
-#         -------
-#         num_actions: int
-#             number of actions
-#         fcs: list
-#             number of neurons in each hidden fc layer (i.e excluding input and output)
-#         num_episodes: int
-#             number of episodes to train for
-#         lr: float
-#             learning rate
-#         gamma: float
-#             discount factor
-#         num_envs: int
-#             number of environment the agent received observations from
-#         beta: float
-#             entropy term control parameter
-#         input_dim: int
-#             dimensionality of the input
-#         device: torch.device
-#             device to compute with
-#         dir: str
-#             name of directory to save to
-#         name: str
-#             name of the agent
-#         '''
-#         self.num_actions = num_actions
-#         self.lr = lr
-#         self.gamma = gamma
-#         self.num_envs = num_envs
-#         self.beta = beta
-#         self.input_dim = input_dim
-#         self.device = device
-#         self.name = name
-#         self.path = os.path.join(dir, name)
-#         self.fcs = fcs
-#         self.network = FCACNetwork(input_dim, fcs, num_actions).to(device)
-#         self.optimizer = optim.Adam(self.network.parameters(), lr)
-#         self.empty()
-
-#     def save_network(self):
-#         '''ActorCriticAgent.save_network: saves network'''
-#         f = os.path.join(self.path, 'network.pth')
-#         self.network.save(f)
-
-#     def store(self, s: np.ndarray, s_: np.ndarray, a: np.ndarray, r: np.ndarray, d: np.ndarray):
-#         '''A2CAgent.store: store transition'''
-#         states = torch.from_numpy(states).float()
-#         actions = torch.from_numpy(actions).long()
-#         rewards = torch.rewards(actions).float
-#         dones = torch.from_numpy(dones).bool()
-#         for i in range(self.num_envs):
-#             self.states = torch.cat([self.states[i], states], dim=0)
-#             self.rewards = torch.cat([self.rewards[i], rewards], dim=0)
-#             self.actions = torch.cat([self.actions[i], actions], dim=0)
-#             self.dones = torch.cat([self.dones[i], dones], dim=0)
-
-#     def empty(self):
-#         '''A2CAgent.empty: empty transitions lists'''
-#         self.states = [torch.empty(0)]*self.num_envs
-#         self.rewards = [torch.empty(0)]*self.num_envs
-#         self.actions = [torch.empty(0)]*self.num_envs
-#         self.dones = [torch.empty(0)]*self.num_envs        
-    
-#     def select_action(self, states: np.ndarray):
-#         '''A2CAgent.select_action: sample action from policy'''
-#         action_probs, value = self.network(torch.from_numpy(states).float().to(self.device))
-#         m = Categorical(action_probs)
-#         return m.sample().detach().cpu().numpy(), value.mean().item()
-
-#     def split_idx(self):
-#         '''A2CAgent.split_idx: splits the memories in chunks of '''
-#         pass
-
-#     def actor_loss(self, ret, value, probs, log_probs):
-#         '''A2CAgent.actor_loss: compute actor loss'''
-#         # pg = -log_probs*(ret-value)
-#         # entropy = self.beta*probs*log_probs
-#         # return pg + entropy
-#         return -log_probs*(ret-value)
-
-#     def critic_loss(self, ret, value):
-#         '''A2CAgent.critic_loss: compute actor loss'''
-#         return (ret-value)**2
-
-#     def learn(self):
-#         '''A2CAgent.learn: update actor and critic weights'''
-#         N, T, d = self.states.shape
-#         action_probs, values = self.network(self.states.reshape(N*T,d).to(self.device))
-#         action_probs = action_probs.reshape(N, T, -1)
-#         m = Categorical(action_probs)
-#         action_log_probs = m.log_prob(self.actions.long().to(self.device))
-#         values = values.reshape(self.rewards.shape)
-#         actor_loss = 0
-#         critic_loss = 0
-#         for i in range(N):
-#             tmask = (self.dones[i]==1)[0]
-#             tmax = T-1 if not tmask.any() else torch.min(tmask.long())-1
-#             ret = values[i,T] if tmask.any() else 0
-#             for t in range(tmax, 0, -1):
-#                 ret = self.rewards[i,t] + self.gamma*ret
-#                 actor_loss += self.actor_loss(ret, values[i,t], action_probs[i,t,self.actions[i,t].long()], action_log_probs[i,t])
-#                 critic_loss += self.critic_loss(ret, values[i, t])
-#         loss = actor_loss + critic_loss - self.beta*m.entropy().mean()
-#         self.optimizer.zero_grad()
-#         loss.backward()
-#         self.optimizer.step()
+        '''A2CAgent.learn: apply update'''
+        R = self.compute_returns()
+        self.to_torch()
+        advantages = R - self.values
+        actor_loss = -(self.log_probs*advantages.detach()).mean()
+        critic_loss = advantages.pow(2).mean()
+        entropy = self.entropies.mean()
+        loss = actor_loss + self.critic_coeff*critic_loss - self.beta*entropy
+        self.optimizer.zero_grad()
+        loss.backward()
+        nn.utils.clip_grad_norm_(self.network.parameters(), 0.1)
+        self.optimizer.step()
+        self.clear()
 
 class A3CWorker:
     def __init__(self, ):

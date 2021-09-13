@@ -58,6 +58,7 @@ class ParallelEnv:
         num_envs: int
             number of copies ot initialize, defaults to mp.cpu_count()*2
         '''
+        self.env_name = env
         self.waiting = False
         self.closed = False
         self.num_envs = num_envs

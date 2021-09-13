@@ -1,15 +1,16 @@
 {
     "algorithm": "a2c",
     "env": "LunarLander-v2",
-    "lr": 0.0001,
-    "gamma": 0.9,
-    "beta": 0.001,
-    "num_envs": 24,
-    "max_iters": 20,
-    "num_iters": 15000000,
+    "lr": 0.0005,
+    "gamma": 0.99,
+    "beta": 0.01,
+    "critic_coeff": 0.5,
+    "num_envs": 48,
+    "max_iters": 5,
+    "num_iters": 250000,
     "num_seeds": 3,
     "device": "cuda:0",
     "fcs": [256, 256],
     "dir": "defaults/final",
-    "name": "lunarlander-a2c"
+    "name": "lunarlander-a2c-short"
 }
