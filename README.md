@@ -26,7 +26,7 @@ Currently implemented algorithms are:
 - Double Deep Q-Netwok: `drl.off_policy.agents.DDQNAgent` \[<a href='https://arxiv.org/pdf/1509.06461.pdf'>paper</a>\]
 - Reinforce: `drl.on_policy.agents.ReinforceAgent` \[<a href='https://link.springer.com/content/pdf/10.1007%2FBF00992696.pdf'>paper</a>\]
 - Actor Critic: `drl.on_policy.agents.ActorCriticAgent` \[<a href='http://www.incompleteideas.net/book/RLbook2020.pdf'>book</a>\]
-- Advantage Actor Critic (A2C): `drl.on_policy.agents.A2CAgent` \[<a href='https://arxiv.org/pdf/1602.01783v2.pdf'>paper</a>\]
+- Advantage Actor Critic (A2C) with parallel environements: `drl.on_policy.agents.A2CAgent` \[<a href='https://arxiv.org/pdf/1602.01783v2.pdf'>paper</a>\]
 
 ## Usage
 
