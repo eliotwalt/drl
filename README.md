@@ -33,7 +33,6 @@ Currently implemented algorithms are:
 **todo**: requirements
 The execution is handle by `executor.py`. 
 ```bash
-python executor.py -h
 usage: executor.py [-h] -c CFG
 
 optional arguments:
