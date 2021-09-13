@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 import random
 import os
+import numpy as np
 from typing import List, Optional
 from ..models import FCACNetwork
 
@@ -164,7 +165,7 @@ class ActorCriticAgent:
         return action.item(), value.item()
 
     def learn(self):
-        '''ActorCritic.learn: apply online update'''
+        '''ActorCriticAgent.learn: apply online update'''
         action_probs, value = self.network(self.state)
         value_ = 0. if self.done else self.network(self.state_)[1]
         m = Categorical(action_probs)
