@@ -162,8 +162,8 @@ class MultiEnvsTrainer:
             Parallel gym environment
         num_iters: int
             Number of iterations per env
-        agent: Many
-            Agent instance
+        agent: QAgent
+            QAgent instance
         num_seeds: int
             Number of different seeds to use
         prid: str
@@ -314,8 +314,8 @@ class SelfContainedTrainer:
         episode_value = 0
         n = 0
         while not done:
-            action, avg_value, _ = self.agent.select_action(state.to(self.agent.device))
-            state, reward, done, _ = self.test_env.step(action.item())
+            action, avg_value, _ = self.agent.select_action(state)
+            state, reward, done, _ = self.test_env.step(action)
             state = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
             episode_reward += reward
             episode_value += avg_value.item()

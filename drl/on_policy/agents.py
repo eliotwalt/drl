@@ -181,8 +181,8 @@ class ActorCriticAgent:
         self.optimizer.step()
 
 class A2CAgent:
-    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int,
-                 beta: float, input_dim: int, device: torch.device, dir: str, name: str):
+    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int, critic_coeff: float,
+                 max_iters: int, beta: float, input_dim: int, device: torch.device, dir: str, name: str):
         '''A2CAgent constructor
         Inputs:
         -------
@@ -200,6 +200,8 @@ class A2CAgent:
             number of environment the agent received observations from
         critic_coeff: float
             coefficient for critic loss
+        max_iters: int
+            number of iteration before updating
         beta: float
             entropy term control parameter
         input_dim: int
@@ -216,6 +218,7 @@ class A2CAgent:
         self.gamma = gamma
         self.num_envs = num_envs
         self.critic_coeff = critic_coeff
+        self.max_iters = max_iters
         self.beta = beta
         self.input_dim = input_dim
         self.device = device
@@ -333,64 +336,64 @@ class A3CWorker(mp.Process):
 
     def clear(self):
         '''A3CWorker.clear: clears memory'''
-        self.log_probs = []
-        self.values = []
         self.rewards = []
-        self.entropies = []
+        self.actions = []
+        self.states = []
 
-    def store(self, reward, action, value, dist):
+    def store(self, state: torch.Tensor, action: int, reward: float):
         '''A3CWorker.store: store transition'''
-        self.rewards.append(torch.Tensor([reward]))
-        self.value.append(value)
-        self.log_probs.append(dist.log_prob(action))
-        self.entropies.append(dist.entropy().mean())
+        self.rewards.append(reward)
+        self.actions.append(action)
+        self.states.append(state)
 
     def to_torch(self):
         '''A3CWorker.to_torch: turn memories into torch tensors'''
-        self.log_probs = torch.Tensor(self.log_probs)
-        self.values = torch.Tensor(self.values)
-        self.next_values = torch.Tensor(self.next_values)
-        self.rewards = torch.Tensor(self.rewards)
-        self.dones = torch.Tensor(self.dones)
-        self.entropies = torch.Tensor(self.entropies)
+        self.states = torch.Tensor(self.states).to(torch.float32)
+        self.actions = torch.Tensor(self.actions).to(torch.float32)
 
     def select_action(self, state: torch.Tensor):
         '''A3CAgent.select_actions: select action based on state'''
         action_probs, value = self.local_network(state)
-        dist = Categorical(actions_probs)
+        dist = Categorical(action_probs)
         action = dist.sample()
-        return action, value, dist
+        return action.item(), value, dist
 
-    def compute_return(self, final_value):
+    def compute_return(self, state_: torch.Tensor, done: bool):
         '''A3CWorker.compute_return: compute return on current memory'''
+        _, final_value = self.local_network(state_)
         returns = []
-        R = final_value
+        R = final_value*(1-done)
         for t in reversed(range(len(self.rewards))):
-            R = self.rewards[t] + self.gamma * R * (1-self.dones[t])
+            R = self.rewards[t] + self.gamma * R
             returns.insert(0,R)
-        return torch.cat(returns).to(self.device)
+        return torch.Tensor(returns).to(torch.float32)
+
+    def compute_loss(self, R):
+        '''A32CWorker.compute_loss: compute losses'''
+        action_probs, values = self.local_network(self.states)
+        dists = Categorical(action_probs)
+        values = values.squeeze()
+        log_probs = dists.log_prob(self.actions)
+        advantages = R-values
+        critic_loss = advantages.pow(2)
+        actor_loss = -(log_probs*advantages.detach())
+        entropy = dists.entropy()
+        return (actor_loss + self.critic_coeff*critic_loss - self.beta*entropy).mean()
     
     def run(self):
         '''A3Worker.run: run a single episode and accumulate gradients'''
         done = False
         state = self.env.reset()
-        n = 0
+        n = 1
+        self.clear()
         while not done:
-            action, value, dist = self.select_action(torch.from_numpy(state).to(torch.float32))
-            state, reward, done, _ = self.env.step(action)
-            self.store(reward, action, value, dist)
-            if n % self.max_iters or done:
-                if done:
-                    final_value = torch.zeros(1)
-                else:
-                    _, final_value, _ = self.local_network(state)
-                R = self.compute_return(final_value)
+            action, _, _ = self.select_action(torch.Tensor([state]).to(torch.float32))
+            state_, reward, done, _ = self.env.step(action)
+            self.store(state, action, reward)                     
+            if n % self.max_iters == 0 or done:
+                R = self.compute_return(torch.Tensor([state_]).to(torch.float32), done)
                 self.to_torch()
-                advantages = R - self.values
-                actor_loss = -(self.log_probs*advantages.detach()).mean()
-                critic_loss = advantages.pow(2).mean()
-                entropy = self.entropies.mean()
-                loss = actor_loss + self.critic_coeff*critic_loss - self.beta*entropy
+                loss = self.compute_loss(R)
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.local_network.parameters(), 0.1)
@@ -400,14 +403,14 @@ class A3CWorker(mp.Process):
                 ):
                     global_param._grad = local_param.grad
                 self.optimizer.step()
-                self.local_network.load_state_dict(
-                        self.global_network.state_dict())
+                self.local_network.load_state_dict(self.global_network.state_dict())
                 self.clear()
+            state = state_
             n += 1
 
 class A3CAgent:
     def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, critic_coeff: float,
-                 max_iters: int, beta: float, input_dim: int, device: torch.device, dir: str, name: str):
+                 max_iters: int, beta: float, input_dim: int, dir: str, name: str):
         '''A3CAgent constructor
         Inputs:
         -------
@@ -429,8 +432,6 @@ class A3CAgent:
             entropy term control parameter
         input_dim: int
             dimensionality of the input
-        device: torch.device
-            device to compute with (global network only)
         dir: str
             name of directory to save to
         name: str
@@ -443,11 +444,10 @@ class A3CAgent:
         self.max_iters = max_iters
         self.beta = beta
         self.input_dim = input_dim
-        self.device = device
         self.name = name
         self.path = os.path.join(dir, name)
         self.fcs = fcs
-        self.global_network = FCACNetwork(input_dim, fcs, num_actions).to(device)
+        self.global_network = FCACNetwork(input_dim, fcs, num_actions)
         self.global_network.share_memory()
         self.optimizer = SharedAdam(self.global_network.parameters(), lr)
         
@@ -458,16 +458,18 @@ class A3CAgent:
 
     def async_learn(self, envs: list):
         '''A3CAgent.async_learn: perform one async learning step'''
-        workers = [A3CWorker(env, self.num_actions, self.fcs, self.gamma, self.critic_coeff, self.max_iters, 
-                   self.beta, self.input_dim, self.optimizer, self.global_network) for env in envs]
-        for worker in workers:
-           #  worker.daemon = True
+        workers = []
+        for env in envs:
+            worker = A3CWorker(env, self.num_actions, self.fcs, self.gamma, self.critic_coeff, self.max_iters, 
+                               self.beta, self.input_dim, self.optimizer, self.global_network)
             worker.start()
-        [worker.join() for worker in workers]
+            workers.append(worker)
+        for worker in workers:
+            worker.join()
 
     def select_action(self, state: torch.Tensor):
         '''A3CAgent.select_actions: select action based on state'''
         action_probs, value = self.global_network(state)
         dist = Categorical(action_probs)
         action = dist.sample()
-        return action, value, dist
+        return action.item(), value, dist
