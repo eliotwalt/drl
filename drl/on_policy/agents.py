@@ -349,7 +349,7 @@ class A3CWorker(mp.Process):
     def to_torch(self):
         '''A3CWorker.to_torch: turn memories into torch tensors'''
         self.states = torch.Tensor(self.states).to(torch.float32)
-        self.actions = torch.Tensor(self.actions).to(torch.float32)
+        self.actions = torch.Tensor(self.actions).long()
 
     def select_action(self, state: torch.Tensor):
         '''A3CAgent.select_actions: select action based on state'''
