@@ -367,3 +367,8 @@ class SelfContainedTrainer:
             'max reward': self.max_rewards,
             'solved at': self.solved_at
         }
+
+    def save_metrics(self):
+        resfile = os.path.join(self.agent.path, 'metrics.json')
+        with open(resfile, 'w') as f:
+            json.dump(self.summary(), f)

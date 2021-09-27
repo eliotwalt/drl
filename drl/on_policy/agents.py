@@ -356,13 +356,9 @@ class A3CWorker(mp.Process):
 
     def select_action(self, state: torch.Tensor):
         '''A3CAgent.select_actions: select action based on state'''
-        print('in select_action 0')
         action_probs, value = self.local_network(state)
-        print('in select_action 1')
         dist = Categorical(actions_probs)
-        print('in select_action 2')
         action = dist.sample()
-        print('in select_action 3')
         return action, value, dist
 
     def compute_return(self, final_value):
@@ -376,18 +372,12 @@ class A3CWorker(mp.Process):
     
     def run(self):
         '''A3Worker.run: run a single episode and accumulate gradients'''
-        print('worker start running')
         done = False
-        print('resetting env')
         state = self.env.reset()
-        print('got initial state')
         n = 0
         while not done:
-            print('selecting action')
             action, value, dist = self.select_action(torch.from_numpy(state).to(torch.float32))
-            print(f'worker do {action}')
             state, reward, done, _ = self.env.step(action)
-            print(f'worker rcv {reward}')
             self.store(reward, action, value, dist)
             if n % self.max_iters or done:
                 if done:
@@ -414,7 +404,6 @@ class A3CWorker(mp.Process):
                         self.global_network.state_dict())
                 self.clear()
             n += 1
-        print('worker done with episode')
 
 class A3CAgent:
     def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, critic_coeff: float,
@@ -472,13 +461,13 @@ class A3CAgent:
         workers = [A3CWorker(env, self.num_actions, self.fcs, self.gamma, self.critic_coeff, self.max_iters, 
                    self.beta, self.input_dim, self.optimizer, self.global_network) for env in envs]
         for worker in workers:
-            worker.daemon = True
+           #  worker.daemon = True
             worker.start()
         [worker.join() for worker in workers]
 
     def select_action(self, state: torch.Tensor):
         '''A3CAgent.select_actions: select action based on state'''
         action_probs, value = self.global_network(state)
-        dist = Categorical(actions_probs)
+        dist = Categorical(action_probs)
         action = dist.sample()
         return action, value, dist
