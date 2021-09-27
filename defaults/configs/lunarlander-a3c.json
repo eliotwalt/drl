@@ -1,11 +1,11 @@
 {
     "algorithm": "a3c",
     "env": "LunarLander-v2",
-    "lr": 0.001,
+    "lr": 0.0005,
     "gamma": 0.99,
     "beta": 0.01,
     "critic_coeff": 0.5,
-    "num_workers": 24,
+    "num_workers": 12,
     "max_iters": 5,
     "num_episodes": 100000,
     "num_seeds": 3,
