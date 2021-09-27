@@ -11,6 +11,8 @@ from drl.on_policy.envs import ParallelEnv
 def make_(env: str):
     return gym.make(id=env)
 
+def no_make(env: str): return env
+
 algo_map = {
     'dql': {
         'agent': DQLAgent,
@@ -56,6 +58,11 @@ algo_map = {
         'agent': A2CAgent,
         'trainer': MultiEnvsTrainer,
         'env_make': ParallelEnv,
+    },
+    'a3c': {
+        'agent': A3CAgent,
+        'trainer': SelfContainedTrainer,
+        'env_make': make_,
     }
 }
 
@@ -82,7 +89,7 @@ def get_trainer(algo: str):
 
 def get_env_maker(algo: str):
     constructor = algo_map[algo.lower()]['env_make']
-    if constructor == gym.make:
+    if constructor == make_:
         return constructor, ['env']
     else:
         return constructor, make_kwargs(constructor)

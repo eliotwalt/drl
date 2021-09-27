@@ -3,11 +3,13 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
+import torch.multiprocessing as mp
 import random
 import os
 import numpy as np
 from typing import List, Optional
 from ..models import FCACNetwork
+from .optim import SharedAdam
 
 eps = np.finfo(np.float32).eps.item()
 
@@ -179,8 +181,8 @@ class ActorCriticAgent:
         self.optimizer.step()
 
 class A2CAgent:
-    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int, critic_coeff: float,
-                 max_iters: int, beta: float, input_dim: int, device: torch.device, dir: str, name: str):
+    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, num_envs: int,
+                 beta: float, input_dim: int, device: torch.device, dir: str, name: str):
         '''A2CAgent constructor
         Inputs:
         -------
@@ -198,8 +200,6 @@ class A2CAgent:
             number of environment the agent received observations from
         critic_coeff: float
             coefficient for critic loss
-        max_iters: int
-            number of iteration before updating
         beta: float
             entropy term control parameter
         input_dim: int
@@ -216,7 +216,6 @@ class A2CAgent:
         self.gamma = gamma
         self.num_envs = num_envs
         self.critic_coeff = critic_coeff
-        self.max_iters = max_iters
         self.beta = beta
         self.input_dim = input_dim
         self.device = device
@@ -291,10 +290,195 @@ class A2CAgent:
         self.optimizer.step()
         self.clear()
 
-class A3CWorker:
-    def __init__(self, ):
-        pass
+class A3CWorker(mp.Process):
+    def __init__(self, env, num_actions: int, fcs: List[int], gamma: float, critic_coeff: float, max_iters: int, 
+                 beta: float, input_dim: int, optimizer: SharedAdam, global_network: nn.Module):
+        '''A3CWorker constructor
+        Inputs:
+        -------
+        env: gym.Env
+            Gym environement to run an episode in
+        num_actions: int
+            number of actions
+        fcs: list
+            number of neurons in each hidden fc layer (i.e excluding input and output)
+        gamma: float
+            discount factor
+        critic_coeff: float
+            coefficient for critic loss
+        max_iters: int
+            number of iteration before updating
+        beta: float
+            entropy term control parameter
+        input_dim: int
+            dimensionality of the input
+        optimizer: SharedAdam
+            global torch optimizer
+        global_network: nn.Module
+            global torch model
+        '''
+        super().__init__()
+        self.env = env
+        self.num_actions = num_actions
+        self.gamma = gamma
+        self.critic_coeff = critic_coeff
+        self.max_iters = max_iters
+        self.beta = beta
+        self.input_dim = input_dim
+        self.fcs = fcs
+        self.optimizer = optimizer
+        self.global_network = global_network
+        self.local_network = FCACNetwork(input_dim, fcs, num_actions)
+        self.clear()
+
+    def clear(self):
+        '''A3CWorker.clear: clears memory'''
+        self.log_probs = []
+        self.values = []
+        self.rewards = []
+        self.entropies = []
+
+    def store(self, reward, action, value, dist):
+        '''A3CWorker.store: store transition'''
+        self.rewards.append(torch.Tensor([reward]))
+        self.value.append(value)
+        self.log_probs.append(dist.log_prob(action))
+        self.entropies.append(dist.entropy().mean())
+
+    def to_torch(self):
+        '''A3CWorker.to_torch: turn memories into torch tensors'''
+        self.log_probs = torch.Tensor(self.log_probs)
+        self.values = torch.Tensor(self.values)
+        self.next_values = torch.Tensor(self.next_values)
+        self.rewards = torch.Tensor(self.rewards)
+        self.dones = torch.Tensor(self.dones)
+        self.entropies = torch.Tensor(self.entropies)
+
+    def select_action(self, state: torch.Tensor):
+        '''A3CAgent.select_actions: select action based on state'''
+        print('in select_action 0')
+        action_probs, value = self.local_network(state)
+        print('in select_action 1')
+        dist = Categorical(actions_probs)
+        print('in select_action 2')
+        action = dist.sample()
+        print('in select_action 3')
+        return action, value, dist
+
+    def compute_return(self, final_value):
+        '''A3CWorker.compute_return: compute return on current memory'''
+        returns = []
+        R = final_value
+        for t in reversed(range(len(self.rewards))):
+            R = self.rewards[t] + self.gamma * R * (1-self.dones[t])
+            returns.insert(0,R)
+        return torch.cat(returns).to(self.device)
+    
+    def run(self):
+        '''A3Worker.run: run a single episode and accumulate gradients'''
+        print('worker start running')
+        done = False
+        print('resetting env')
+        state = self.env.reset()
+        print('got initial state')
+        n = 0
+        while not done:
+            print('selecting action')
+            action, value, dist = self.select_action(torch.from_numpy(state).to(torch.float32))
+            print(f'worker do {action}')
+            state, reward, done, _ = self.env.step(action)
+            print(f'worker rcv {reward}')
+            self.store(reward, action, value, dist)
+            if n % self.max_iters or done:
+                if done:
+                    final_value = torch.zeros(1)
+                else:
+                    _, final_value, _ = self.local_network(state)
+                R = self.compute_return(final_value)
+                self.to_torch()
+                advantages = R - self.values
+                actor_loss = -(self.log_probs*advantages.detach()).mean()
+                critic_loss = advantages.pow(2).mean()
+                entropy = self.entropies.mean()
+                loss = actor_loss + self.critic_coeff*critic_loss - self.beta*entropy
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.local_network.parameters(), 0.1)
+                for local_param, global_param in zip(
+                    self.local_network.parameters(),
+                    self.global_network.parameters()
+                ):
+                    global_param._grad = local_param.grad
+                self.optimizer.step()
+                self.local_network.load_state_dict(
+                        self.global_network.state_dict())
+                self.clear()
+            n += 1
+        print('worker done with episode')
 
 class A3CAgent:
-    def __init__(self, ):
-        pass
+    def __init__(self, num_actions: int, fcs: List[int], lr: float, gamma: float, critic_coeff: float,
+                 max_iters: int, beta: float, input_dim: int, device: torch.device, dir: str, name: str):
+        '''A3CAgent constructor
+        Inputs:
+        -------
+        num_actions: int
+            number of actions
+        fcs: list
+            number of neurons in each hidden fc layer (i.e excluding input and output)
+        num_episodes: int
+            number of episodes to train for
+        lr: float
+            learning rate
+        gamma: float
+            discount factor
+        critic_coeff: float
+            coefficient for critic loss
+        max_iters: int
+            number of iteration before updating
+        beta: float
+            entropy term control parameter
+        input_dim: int
+            dimensionality of the input
+        device: torch.device
+            device to compute with (global network only)
+        dir: str
+            name of directory to save to
+        name: str
+            name of the agent
+        '''
+        self.num_actions = num_actions
+        self.lr = lr
+        self.gamma = gamma
+        self.critic_coeff = critic_coeff
+        self.max_iters = max_iters
+        self.beta = beta
+        self.input_dim = input_dim
+        self.device = device
+        self.name = name
+        self.path = os.path.join(dir, name)
+        self.fcs = fcs
+        self.global_network = FCACNetwork(input_dim, fcs, num_actions).to(device)
+        self.global_network.share_memory()
+        self.optimizer = SharedAdam(self.global_network.parameters(), lr)
+        
+    def save_network(self):
+        '''A3CAgent.save_network: saves network'''
+        f = os.path.join(self.path, 'network.pth')
+        self.global_network.save(f)
+
+    def async_learn(self, envs: list):
+        '''A3CAgent.async_learn: perform one async learning step'''
+        workers = [A3CWorker(env, self.num_actions, self.fcs, self.gamma, self.critic_coeff, self.max_iters, 
+                   self.beta, self.input_dim, self.optimizer, self.global_network) for env in envs]
+        for worker in workers:
+            worker.daemon = True
+            worker.start()
+        [worker.join() for worker in workers]
+
+    def select_action(self, state: torch.Tensor):
+        '''A3CAgent.select_actions: select action based on state'''
+        action_probs, value = self.global_network(state)
+        dist = Categorical(actions_probs)
+        action = dist.sample()
+        return action, value, dist

@@ -16,8 +16,8 @@ class Trainer:
             Gym environment
         num_episodes: int
             Number of iterations per epsiode
-        agent: QAgent
-            QAgent instance
+        agent: Many
+            Agent instance
         num_seeds: int
             Number of different seeds to use
         prid: str
@@ -162,8 +162,8 @@ class MultiEnvsTrainer:
             Parallel gym environment
         num_iters: int
             Number of iterations per env
-        agent: QAgent
-            QAgent instance
+        agent: Many
+            Agent instance
         num_seeds: int
             Number of different seeds to use
         prid: str
@@ -270,3 +270,100 @@ class MultiEnvsTrainer:
         resfile = os.path.join(self.agent.path, 'metrics.json')
         with open(resfile, 'w') as f:
             json.dump(self.summary(), f)
+
+class SelfContainedTrainer:
+    def __init__(self, env, num_episodes: int, agent, num_workers: int, num_seeds: int, prid: str=''):
+        '''SelfContainedTrainer constructor
+        Inputs:
+        -------
+        env: str
+            Gym environment id
+        num_episodes: int
+            Number of episodes per agent
+        agent: Many
+            Agent instance
+        num_workers: int
+            Number of workers
+        num_seeds: int
+            Number of different seeds to use
+        prid: str
+            String to identify the trainer's output in terminal
+        '''
+        env_name = str(env.spec).split('(')[1].split(')')[0]
+        self.envs = [gym.make(env_name) for _ in range(num_workers)]
+        self.test_env = env
+        self.num_episodes = num_episodes
+        self.agent = agent
+        self.num_workers = num_workers
+        self.num_seeds = num_seeds
+        self.prid = prid
+        self.episode_rewards = []
+        self.episode_values = []
+        self.avg_rewards = []
+        self.avg_values = []        
+        self.max_rewards = [-float('inf')]
+        self.solved = 'not solved'
+        self.solved_at = None
+
+    def test(self):
+        '''SelfContainedTrainer.run: run a test episode'''
+        state = self.test_env.reset()
+        state = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
+        done = False
+        episode_reward = 0
+        episode_value = 0
+        n = 0
+        while not done:
+            action, avg_value, _ = self.agent.select_action(state.to(self.agent.device))
+            state, reward, done, _ = self.test_env.step(action.item())
+            state = torch.from_numpy(state).to(torch.float32).unsqueeze(0)
+            episode_reward += reward
+            episode_value += avg_value.item()
+            n += 1
+        self.episode_rewards.append(episode_reward)
+        self.episode_values.append(episode_value)
+        if len(self.episode_rewards) < num_consecutive_episodes_solved:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards)).item())
+        else:
+            self.avg_rewards.append(torch.mean(torch.Tensor(self.episode_rewards[-num_consecutive_episodes_solved:])).item())
+        self.avg_values.append(torch.mean(torch.Tensor(self.episode_values)).item())
+
+    def verbose_print(self, episode: int):
+        print('{0} episode {1}/{2} ({3}) - ep reward: {4:.5f}, avg reward: {5:.5f}, max reward: {6:.5f}'.format(
+            self.prid, str(episode).rjust(len(str(self.num_episodes))),
+            self.num_episodes, self.solved, self.episode_rewards[-1], 
+            self.avg_rewards[-1], self.max_rewards[-1],
+        ))
+
+    def run(self):
+        '''SelfContainedTrainer.run: run all episodes'''
+        for episode in range(self.num_episodes):
+            self.agent.async_learn(self.envs)
+            self.test()
+            if self.solved == 'not solved' and episode >= num_consecutive_episodes_solved and self.avg_rewards[-1] > reward_threshold:
+                self.solved = 'solved at {}'.format(episode+1)
+                self.solved_at = episode+1
+            if episode == 0 or (episode+1) % 10 == 0:
+                episode_ = episode + 1            
+                self.verbose_print(episode_)
+            if self.episode_rewards[-1] > self.max_rewards[-1]:
+                self.agent.save_network()
+                self.save_metrics()
+                self.max_rewards.append(self.episode_rewards[-1])
+                if not (episode == 0 or (episode+1) % 10 == 0):
+                    self.verbose_print(episode+1)
+            else:
+                self.max_rewards.append(self.max_rewards[-1])
+        self.max_rewards.pop(0)
+        return self.summary()
+
+    def summary(self):
+        '''SelfContainedTrainer.summary: return dictionary of metrics'''
+        return {
+            'episode reward': self.episode_rewards,
+            'episode value': self.episode_values,
+            'average reward': self.avg_rewards,
+            'average value': self.avg_values,
+            'max reward': self.max_rewards,
+            'solved at': self.solved_at
+        }
