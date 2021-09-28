@@ -321,6 +321,7 @@ class A3CWorker(mp.Process):
             global torch model
         '''
         super().__init__()
+        self.daemon = True
         self.env = env
         self.num_actions = num_actions
         self.gamma = gamma
@@ -332,6 +333,7 @@ class A3CWorker(mp.Process):
         self.optimizer = optimizer
         self.global_network = global_network
         self.local_network = FCACNetwork(input_dim, fcs, num_actions)
+        self.local_network.load_state_dict(self.global_network.state_dict())
         self.clear()
 
     def clear(self):
@@ -450,6 +452,11 @@ class A3CAgent:
         self.global_network = FCACNetwork(input_dim, fcs, num_actions)
         self.global_network.share_memory()
         self.optimizer = SharedAdam(self.global_network.parameters(), lr)
+        try:
+            mp.set_start_method('spawn')
+        except RuntimeError:
+            pass
+
         
     def save_network(self):
         '''A3CAgent.save_network: saves network'''
