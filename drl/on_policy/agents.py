@@ -372,6 +372,7 @@ class A3CWorker(mp.Process):
 
     def compute_loss(self, R):
         '''A32CWorker.compute_loss: compute losses'''
+        self.to_torch()
         action_probs, values = self.local_network(self.states)
         dists = Categorical(action_probs)
         values = values.squeeze()
@@ -383,7 +384,7 @@ class A3CWorker(mp.Process):
         return (actor_loss + self.critic_coeff*critic_loss - self.beta*entropy).mean()
     
     def run(self):
-        '''A3Worker.run: run a single episode and accumulate gradients'''
+        '''A3CWorker.run: run a single episode and accumulate gradients'''
         done = False
         state = self.env.reset()
         n = 1
@@ -394,7 +395,6 @@ class A3CWorker(mp.Process):
             self.store(state, action, reward)                     
             if n % self.max_iters == 0 or done:
                 R = self.compute_return(torch.Tensor([state_]).to(torch.float32), done)
-                self.to_torch()
                 loss = self.compute_loss(R)
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -403,6 +403,7 @@ class A3CWorker(mp.Process):
                     self.local_network.parameters(),
                     self.global_network.parameters()
                 ):
+                    global_param.grad = local_param.grad
                     global_param._grad = local_param.grad
                 self.optimizer.step()
                 self.local_network.load_state_dict(self.global_network.state_dict())
